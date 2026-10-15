@@ -145,7 +145,26 @@ function setMenu(open) {
 }
 burger.addEventListener('click', () => setMenu(burger.getAttribute('aria-expanded') !== 'true'));
 menuClose.addEventListener('click', () => setMenu(false));
-menu.querySelectorAll('a[href^="#"]').forEach(a => a.addEventListener('click', () => setMenu(false)));
+/* Menu shortcuts: close the menu, then scroll to the section ourselves.
+   Relying on the browser's default anchor jump can fail while the page is
+   still scroll-locked by the open menu (body overflow hidden). */
+menu.querySelectorAll('a[href^="#"]').forEach(a => a.addEventListener('click', e => {
+  const id = a.getAttribute('href').slice(1);
+  const target = id ? document.getElementById(id) : document.body;
+  if (!target) { setMenu(false); return; }
+  e.preventDefault();
+  setMenu(false);                                   // unlocks page scrolling
+  const go = () => {
+    const header = document.querySelector('.nav');
+    const offset = header ? header.offsetHeight : 0;
+    const y = id ? Math.max(target.getBoundingClientRect().top + window.pageYOffset - offset + 1, 0) : 0;
+    const smooth = !window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    window.scrollTo({ top: y, behavior: smooth ? 'smooth' : 'auto' });
+    if (history.replaceState) history.replaceState(null, '', '#' + id);
+  };
+  // wait for the browser to apply the unlocked scroll state before scrolling
+  requestAnimationFrame(() => requestAnimationFrame(go));
+}));
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape' && menu.classList.contains('open')) setMenu(false);
 });
